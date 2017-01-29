@@ -1,0 +1,3 @@
+## Resources for Lubridate
+https://www.r-statistics.com/2012/03/do-more-with-dates-and-times-in-r-with-lubridate-1-1-0/
+https://cran.r-project.org/web/packages/lubridate/vignettes/lubridate.html

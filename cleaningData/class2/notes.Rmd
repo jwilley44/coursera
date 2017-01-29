@@ -1,0 +1,123 @@
+# Reading from MySQL
+
+## Access the UCSC Genomics database in R
+```{r}
+library(RMySQL)
+ucscDb <- dbConnect(MySQL(), user="genome", host="genome-mysql.cse.ucsc.edu")
+```
+
+## Resources
+sqldf package for sql operations on dataframes  
+https://cran.r-project.org/web/packages/RMySQL/RMySQL.pdf  
+https://www.r-bloggers.com/mysql-and-r/  
+http://www.pantz.org/sofware/mysql/sqlcommands.html  
+
+# Reading data from HDF5
+
+## Example
+```{r, eval=TRUE}
+library(rhdf5)
+created <- h5createFile("example.h5")
+h5createGroup("example.h5", "foo")
+h5createGroup("example.h5", "baa")
+h5createGroup("example.h5", "foo/foobaa")
+h5ls("example.h5")
+
+A <- matrix(1:10, nr=5, nc=2)
+h5write(A, "example.h5", "foo/A")
+h5ls("example.h5")
+readA <- h5read("example.h5", "foo/A")
+readA
+
+h5write(c(12, 13, 14), "example.h5", "foo/A", index=list(1:3, 1))
+h5read("example.h5", "foo/A")
+
+```
+
+## Resources
+https://www.hdfgroup.org/  
+https://www.bioconductor.org/packages/release/bioc/vignettes/rhdf5/inst/doc/rhdf5.pdf  
+
+# Reading data by Web Scraping
+
+## Example
+```{r, eval=TRUE}
+con  <- url("https://scholar.google.com/citations?user=HI-I6C0AAAAJ")
+htmlCode <- readLines(con, warn=FALSE)
+close(con)
+library(XML)
+html <- htmlTreeParse(htmlCode, useInternalNodes=T)
+xpathSApply(html, "//title", xmlValue)
+xpathSApply(html, "//td[@id='col-citeby']", xmlValue)
+
+library(httr)
+html2 <- GET("https://scholar.google.com/citations?user=HI-I6C0AAAAJ")
+content2 <- content(html2, as="text")
+parsedHtml <- htmlParse(content2, asText=TRUE)
+xpathSApply(parsedHtml, "//title", xmlValue)
+
+```
+
+## Example Authentication
+```{r, eval=FALSE}
+webPage <- GET("www.theurl.com/blorg", authenticate("user", "password"))
+```
+
+## Resources
+
+http://en.wikipedia.org/wiki/Web_scraping  
+https://cran.r-project.org/web/packages/httr/httr.pdf  
+https://www.r-bloggers.com/search/web%20scraping/  
+
+# Reading data from API
+
+## Example reading from Twitter
+```{r eval=FALSE}
+myapp <- oauth_app("twitter", key="yourConsumerKey", secret="yourConsumerSecret")
+sig <- sign_oauth1.0(myapp, token="yourToken", token_secret="yourTokenSecret")
+homeTl <- GET("https:/api.twitter.com/1.1/statuses/home_timeline.json", sig)
+content(homeTL)
+library(jsonlite)
+jsonContent <- fromJSON(toJSON(content(homeTL)))
+```
+
+## Resources
+https://github.com/hadley/httr/tree/master/demo  
+
+# Reading from other sources
+
+## foreign package
+read.arf (Weka)  
+read.dta (Stat)  
+read.mtp (Minitab)  
+read.octave (Octave)  
+read.spss (SPSS)  
+read.xport (SAS)  
+
+https://cran.r-project.org/web/packages/foreign/foreign.pdf  
+
+## Other database pacakges
+###Postgress
+https://cran.r-project.org/web/packages/RPostgreSQL/index.htm  l
+https://www.r-bloggers.com/getting-started-with-postgresql-in-r/  
+https://www.r-bloggers.com/using-postgresql-in-r-a-quick-how-to/  
+### RODBC
+https://cran.r-project.org/web/packages/RODBC/RODBC.pdf  
+https://cran.r-project.org/web/packages/RODBC/vignettes/RODBC.pdf  
+### MongoDb  
+https://cran.r-project.org/web/packages/mongolite/vignettes/intro.html  
+
+## Images
+jpeg https://cran.r-project.org/web/packages/jpeg/jpeg.pdf  
+readbitmap https://cran.r-project.org/web/packages/readbitmap/readbitmap.pdf  
+png https://cran.r-project.org/web/packages/png/png.pdf  
+EBImage https://bioconductor.org/packages/release/bioc/html/EBImage.html  
+
+## GIS data
+rdgal https://cran.r-project.org/web/packages/rgdal/rgdal.pdf  
+rgeos https://cran.r-project.org/web/packages/rgeos/rgeos.pdf  
+raster https://cran.r-project.org/web/packages/raster/raster.pdf  
+
+## Music data
+tuneR https://cran.r-project.org/web/packages/tuneR/tuneR.pdf  
+seewave https://cran.r-project.org/web/packages/seewave/seewave.pdf  
