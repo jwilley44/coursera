@@ -5,41 +5,41 @@ Contains all the mean and standard deviation values from the training and the
 test sets.
 ### Column Values
 - set
--- test
--- train
+  - test
+  - train
 - activity
--- WALKING
--- WALKING_UPSTAIRS
--- WALKING_DOWNSTAIRS
--- SITTING
--- STANDING
--- LAYING
+  - WALKING
+  - WALKING_UPSTAIRS
+  - WALKING_DOWNSTAIRS
+  - SITTING
+  - STANDING
+  - LAYING
 - metric: the quantity that was measured
--- fBodyAcc 
--- fBodyAccJerk 
--- fBodyAccMag 
--- fBodyBodyAccJerkMag 
--- fBodyBodyGyroJerkMag
--- fBodyBodyGyroMag
--- fBodyGyro
--- tBodyAcc
--- tBodyAccJerk
--- tBodyAccJerkMag
--- tBodyAccMag
--- tBodyGyro
--- tBodyGyroJerk
--- tBodyGyroJerkMag
--- tBodyGyroMag
--- tGravityAcc
--- tGravityAccMag
+  - fBodyAcc 
+  - fBodyAccJerk 
+  - fBodyAccMag 
+  - fBodyBodyAccJerkMag 
+  - fBodyBodyGyroJerkMag
+  - fBodyBodyGyroMag
+  - fBodyGyro
+  - tBodyAcc
+  - tBodyAccJerk
+  - tBodyAccJerkMag
+  - tBodyAccMag
+  - tBodyGyro
+  - tBodyGyroJerk
+  - tBodyGyroJerkMag
+  - tBodyGyroMag
+  - tGravityAcc
+  - tGravityAccMag
 - measurement: how the metric was recorded
--- mean
--- standard deviation
+  - mean
+  - standard deviation
 - direction: the direction of the metric
--- X
--- Y
--- Z
--- [blank]
+  - X
+  - Y
+  - Z
+  - [blank]
 - value: the value that was recorded. See
   http://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones
   for more information on methods, units, etc..
