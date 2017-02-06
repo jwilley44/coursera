@@ -1,10 +1,7 @@
 #!/usr/local/bin/Rscript
 
-scriptArguments <- commandArgs(trailingOnly=TRUE)
+originalDataDir <- "originalData"
 
-if (length(scriptArguments) < 1) stop("Data directory must be given")
-
-originalDataDir <- scriptArguments[1]
 if (!dir.exists(originalDataDir)) stop(paste("Data directory:", originalDataDir, "does not exist"));
 
 if(!file.exists("tidyData.R")) stop(paste(
@@ -12,7 +9,7 @@ if(!file.exists("tidyData.R")) stop(paste(
 					"You must be in the coursera/cleaningData/project/scripts", "
 					directory to run this script"))
 
-source("tidyData.R")
+source("Rcode/tidyData.R")
 
 print("Setting intial variables")
 setInitialVariables(originalDataDir)

@@ -1,9 +1,10 @@
 # Cleaning the data
-In the scripts directory you can run
+In this directory you can run
 ```
-./run_analysis.R <location of original data>
+./run_analysis.R
 ```
-This will create a directory called tidyData in the same parent directory as the directory with the original data with two files:    
+This will create a directory called tidyData in this directory with two
+files:    
 tidyData.tsv contains the mean and standard deviation of all the data points  
 tidyData.summarized.tsv contains the average values for the mean and standard deviation for the data  
 SeeCodeBook.md for more information on the format of those files
@@ -14,7 +15,7 @@ the data.
 
 ```{r eval=TRUE}
 originalDataDir <- "originalData"
-source("scripts/tidyData.R")
+source("Rcode/tidyData.R")
 setInitialVariables(originalDataDir)
 ```
 
