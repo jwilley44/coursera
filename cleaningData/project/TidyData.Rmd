@@ -1,0 +1,48 @@
+# Cleaning the data
+In the scripts directory you can run
+```
+./run_analysis.R <location of original data>
+```
+This will create a directory called tidyData in the same parent directory as the directory with the original data with two files:    
+tidyData.tsv contains the mean and standard deviation of all the data points  
+tidyData.summarized.tsv contains the average values for the mean and standard deviation for the data  
+SeeCodeBook.md for more information on the format of those files
+
+## Step 1: Setting up the environment
+Set the appropriate location of
+the data.
+
+```{r eval=TRUE}
+originalDataDir <- "originalData"
+source("scripts/tidyData.R")
+setInitialVariables(originalDataDir)
+```
+
+## Step 2: Load the data
+The commands below load the data into a data frame, label the test and training
+sets, combine the data.
+```{r eval=TRUE}
+train.data <- getTrainFeatureData(originalDataDir)
+test.data <- getTestFeatureData(originalDataDir)
+all.data <- rbind(train.data, test.data) %>% tbl_df()
+print(all.data)
+```
+
+## Step 3: Tidy the data
+Tidys the data by separting out the feature column from above.
+```{r eval=TRUE}
+tidy.data <- tidyFeatureData(all.data)
+print(tidy.data)
+```
+See CodeBookd.md for a description of the data
+
+## Step 4: Summarize the data
+Summarize the data over set, activity, metric, measurement, direction by taking
+the average values. Spread out the measurement column into two columns, mean and
+standard deviation.
+```{r eval=TRUE}
+summarized.data <-
+summarizeFeatureData(tidy.data)
+print(summarized.data)
+```
+See CodeBookd.md for a description of the data

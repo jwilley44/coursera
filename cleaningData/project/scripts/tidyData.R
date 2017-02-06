@@ -3,34 +3,57 @@ library(dplyr)
 library(tidyr)
 library(readr)
 
-# Global Variables
-originalDataDir <- "../originalData"
-trainDataDir <- file.path(originalDataDir, "train")
-testDataDir <- file.path(originalDataDir, "test")
-featureNames <- readLines(file.path(originalDataDir, "features.txt")) %>% gsub(".* ", "", .) %>% make.names()
-labelMappings <- read.table(file.path(originalDataDir, "activity_labels.txt"), header=F, sep= ' ')$V2
+# Given the data directory create some global variables to
+# be used in the data cleaning
+setInitialVariables <- function(originalDataDir)
+{
+	assign("testDataDir", file.path(originalDataDir, "test"), envir=.GlobalEnv)
+	assign("trainDataDir", file.path(originalDataDir, "train"), envir=.GlobalEnv)
+	featureNames <- readLines(file.path(originalDataDir, "features.txt")) %>% 
+			gsub(".* ", "", .)
+	assign("featureNames", featureNames, envir=.GlobalEnv)
+	labelMappings <- read.table(file.path(originalDataDir, "activity_labels.txt"), header=F, sep= ' ')$V2
+	assign("labelMappings", labelMappings, envir=.GlobalEnv);
+}
+
+# Read and format the training data
+getTrainFeatureData <- function(originalDataDir)
+{
+	.getFeatureData(originalDataDir, "train")
+}
+
+# Read and format the test data
+getTestFeatureData <- function(originalDataDir)
+{
+	.getFeatureData(originalDataDir, "test")
+}
+
+.getFeatureData <- function(originalDataDir, setLabel)
+{
+	featurefile <- file.path(originalDataDir, setLabel, paste0("X_", setLabel, ".txt"))
+	labelsfile <- file.path(originalDataDir, setLabel, paste0("y_", setLabel, ".txt"))
+	readFeatureData(featurefile, labelsfile) %>%
+			mutate(set=setLabel)
+}
+
 
 # Reads the feature data. Returns a data.frame
 # with the features as columns
 readFeatureData <- function(featurefile, labelsFile)
 {
+	labelsList <- as.list(labelMappings[as.numeric(readLines(labelsFile))])
 	featureData <- readLines(featurefile) %>%
-			strsplit(" ") %>%
-			ldply(formatValues) %>%
-			setColumnNames(featureNames)
-	colnames(featureData) <- make.names(featureNames)
-	featureData$activity <- labelMappings[as.numeric(readLines(labelsFile))]
-	return(featureData)
+			as.list() %>%
+			mapply(paste, labelsList, .) %>%
+			ldply(formatData)
 }
 
 # Tidy the feature data
-# 
+# Separate the feature column into metric, measurement, and direction
 tidyFeatureData <- function(featureData)
 {
-	gather(featureData[, 1:562], metric, value, -activity) %>%
-			mutate(metric=gsub("\\.+", ".", metric)) %>%
-			separate(metric, c("metric", "type"), sep="\\.", extra="merge") %>%
-			separate(type, c("measurement", "direction"), sep="\\.", extra="merge", fill="right") %>%
+	separate(featureData, feature, c("metric", "type"), sep="-", extra="merge", fill="right") %>% 
+			separate(type, c("measurement", "direction"), extra="merge", fill="right") %>%
 			filter(measurement %in% c("mean", "std"))
 }
 
@@ -48,13 +71,13 @@ summarizeFeatureData <- function(featureData)
 			spread(measurement, avg.value)
 }
 
-# Converts to numeric, removes NA values and converts the vector
-# to a dataframe
-formatValues <- function(featurevector)
+# Converts the line data into a data.frame
+formatData <- function(dataline)
 {
-	as.numeric(featurevector) %>%
-			Filter(function(v) !is.na(v), .) %>%
-			as.matrix() %>%
-			t() %>%
-			as.data.frame()
+	datavector <- strsplit(dataline, " ") %>% unlist()
+	activity <- datavector[1]
+	featurevector <- tail(datavector, -1)
+	values <- as.numeric(featurevector) %>%
+			Filter(function(v) !is.na(v), .)
+	data.frame(value=values, feature=featureNames, activity=as.character(activity))
 }
