@@ -1,4 +1,4 @@
-library(tidyr)
+#!/usr/local/bin/Rscript
 
 plot3 <- function(power.cons)
 {
@@ -15,3 +15,12 @@ plot3 <- function(power.cons)
 			col=c("black", "red", "blue"), 
 			legend=c("Sub_metering_1", "Sub_metering_2", "Sub_metering_3"))
 }
+
+
+source("plotUtil.R")
+
+# Read and format the data
+power.cons <- readAndFormatData()
+
+# Plot the data
+printPlotToPng(plot3, power.cons, "plot3.png")

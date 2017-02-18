@@ -1,5 +1,4 @@
-source("plot1.R")
-source("plot3.R")
+#!/usr/local/bin/Rscript
 
 plot4 <- function(power.cons)
 {
@@ -17,7 +16,7 @@ plotTopLeft <- function(power.cons)
 					Global_active_power,
 					type="l",
 					xlab="", 
-					ylab="Global Active Power (killowats)"))
+					ylab="Global Active Power"))
 }
 
 plotTopRight <- function(power.cons)
@@ -54,3 +53,12 @@ plotBottomRight <- function(power.cons)
 					type="l",
 					xlab="datetime"))
 }
+
+
+source("plotUtil.R")
+
+# Read and format the data
+power.cons <- readAndFormatData()
+
+# Plot the data
+printPlotToPng(plot4, power.cons, "plot4.png")
