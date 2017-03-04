@@ -3,3 +3,5 @@
 *.RHistory
 *.xlsx
 exploratoryDataAnalysis/class1/household_power_consumption.txt
+reproduceableResearch/project2/dataAnalysis_cache
+reproduceableResearch/project2/dataAnalysis_files

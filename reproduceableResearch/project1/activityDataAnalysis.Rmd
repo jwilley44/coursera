@@ -1,0 +1,96 @@
+---
+title: "Activity Data Analysis"
+author: "John Willey"
+date: "2/20/2017"
+output: html_document
+---
+
+```{r globalOptions, echo=FALSE, results='hide'}
+library(knitr)
+opts_chunk$set(message=FALSE, warning=FALSE)
+```
+
+The data used in this analysis can be downloaded from the Coursera course website [here](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip).
+
+R packages used in this analysis:
+```{r, results='hide'}
+library(readr)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(scales)
+```
+
+# Reading and Formatting the Data
+The data is a simple csv data file with three columns
+* steps
+* data
+* interval
+We will use the readr, dplyr, and lubridate R packages to read and format this data.
+```{r}
+activityData <- read_csv("activity.csv") %>% mutate(date=ymd(date))
+print(activityData)
+```
+We change NA values for steps to zero.  
+
+# Analysis of Data
+Below is a quick summary of the data and histogram of the number of steps taken per day.
+```{r}
+summary(activityData)
+```
+
+#### Histogram of the Steps Per Day
+Group the data by date and sum the steps. Plot histogram of the total steps taken per day.
+```{r}
+stepsPerDay <- group_by(activityData, date) %>% summarize(total.steps=sum(steps, na.rm=TRUE))
+qplot(data=stepsPerDay, x=total.steps) + xlab("Total Steps Per Day") + ylab("Frequency") + theme_bw()
+```
+
+#### Mean and Median Steps Per Day
+```{r, results='hide'}
+meanSteps <- round(mean(stepsPerDay$total.steps, na.rm=TRUE), 2)
+medianSteps <- median(stepsPerDay$total.steps, na.rm=TRUE)
+```
+The mean number of steps taken per day is `r meanSteps` and the median number of steps taken per day is `r medianSteps`.  
+
+#### Time Series (by interval) of Average Steps Taken
+We group the data by interval and take average number of steps accross all the dates for that interval.
+```{r}
+timeSeries <- group_by(activityData, interval) %>% summarize(ave.steps=mean(steps, na.rm=T)) 
+```
+
+We can now plot the time series data
+```{r}
+ggplot(data=timeSeries, aes(x=interval, y=ave.steps)) + geom_point() + geom_line() + theme_bw() + xlab("5 Minute Interval Identifier") + ylab("Average Number of Steps")
+```
+
+The interval that on average has the most number of steps is interval `r timeSeries[which.max(timeSeries$ave.steps), ]$interval`.
+
+#### Missing Values
+The total number of missing values is `r length(activityData$steps[is.na(activityData$steps)])`. To impute the missing values, the average steps taken for that iterval accross all the days will be used. If the all the days are missing that interval then the number steps will be set to zero. We can see from `timeSeries` data frame that there are no intervals that have an `NA`, so we can just merge that data frame with the original `activityData` data frame to impute the average value for that interval for the observations with an NA for steps.
+```{r}
+activityData.noMissing <- merge(activityData, timeSeries, by="interval") %>%
+                            mutate(steps=ifelse(is.na(steps), ave.steps, steps)) %>% 
+                            select(steps, date, interval)
+summary(activityData.noMissing)
+```
+We can see from the summary that there are now no missing data. We can reproduce the histogram and recalculate the mean and median with this new data.
+```{r}
+stepsPerDay <- group_by(activityData.noMissing, date) %>% summarize(total.steps=sum(steps, na.rm=TRUE))
+meanSteps <-  as.character(round(mean(stepsPerDay$total.steps), 2))
+medianSteps <-  as.character(round(median(stepsPerDay$total.steps), 2))
+qplot(data=stepsPerDay, x=total.steps) + xlab("Total Steps Per Day") + ylab("Frequency") + theme_bw()
+```
+
+Now that there are no missing values the mean number of steps taken per day is `r meanSteps` and the median number of steps taken per day is `r medianSteps`.
+
+#### Weekdays vs Weekends
+Using the data with no missing values we can look at the average steps taken per interval accross all the days separated into weekdays and weekends
+```{r}
+newTimeSeries <- mutate(activityData.noMissing, day.type=ifelse(weekdays(date) %in% c("Saturday", "Sunday"), "weekend", "weekday")) %>% group_by(interval, day.type) %>% summarize(ave.steps=mean(steps))
+```
+
+We can plot this data as before
+```{r}
+ggplot(data=newTimeSeries, aes(x=interval, y=ave.steps)) + geom_point() + geom_line() + theme_bw() + xlab("5 Minute Interval Identifier") + ylab("Average Number of Steps") + facet_wrap(~day.type, ncol=1)
+```

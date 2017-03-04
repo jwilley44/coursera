@@ -1,0 +1,231 @@
+---
+title: "The Effect of Severe Weather on the Public Health and Economies of Communities in the United States"
+synopsis: "Presented here is a distillation of data from the U.S. National Oceanic and Atmoshperic 
+Administration on the effect severe wheather has on population health and the economy. To determine
+the overall effect of population health the number of fatalities and injuries is considered. The amount
+of property damage and crop damage will be used to determin the effect of the weather on the economy. Since
+the data was collected by many different people there are not consistent identifiers for the types of weather events, ie
+'TORNADOS' vs 'TORNADO'. A clustering method based on the distance between names was used to group events together. It was determined that
+tornados by far cause the greates harm to public health when considering either injury or death. Droughts casue more damage
+to crops than any other weather event while flooding tends to cause the most property damage as well as the second most
+damage to crops."
+output:
+  html_document:
+    toc: true
+---
+## Synopsis
+Presented here is a distillation of data from the U.S. National Oceanic and
+Atmoshperic Administration on the effect severe wheather has on population
+health and the economy. To determine the overall effect of population health the
+number of fatalities and injuries is considered. The amount of property damage
+and crop damage will be used to determine the effect of the weather on the
+economy. Since the data was collected by many different people there are not
+consistent identifiers for the types of weather events, ie 'TORNADOS' vs
+'TORNADO'. A clustering method based on the distance between event names was
+used to group events together. It was determined that tornados by far cause the
+greatest harm to public health when considering either injury or death. Droughts
+casue more damage to crops than any other weather event while flooding tends to
+cause the most property damage as well as the second most damage to crops.
+
+### Data Provenence
+The data are from the U.S. National Oceanic and Atmospheric Administration's database. The data can be downloaded [here](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) and a description of the data can be found [here](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+
+### R Libraries and Global Settings
+```{r, eval=TRUE, echo=TRUE, cache=TRUE}
+library(knitr)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(ggplot2)
+library(scales)
+library(stringdist)
+
+opts_chunk$set(message=FALSE, warning=FALSE, echo=TRUE, eval=TRUE)
+```
+
+# Data Processing
+
+Download and read in the data.
+```{r, cache=TRUE}
+dataLink <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+tmpData <- tempfile()
+download.file(dataLink, tmpData)
+unprocessed <- read_csv(bzfile(tmpData), progress=FALSE)
+unlink(tmpData)
+```
+
+## Merging the Event Types
+
+There are `r length(unique(unprocessed$EVTYPE))` unique event types in the data
+set. Many of them can be merged. For example 'AVALANCE' is probably a
+misspelling of the event type 'AVALANCHE' or the event types 'RIP CURRENT' and
+'RIP CURRENTS' are likely the same event type. Below is the code used to merge
+event types. Event types are merged
+based on clustering by similarity in their name (Jaro-Winker
+distance[https://en.wikipedia.org/wiki/Jaro%E2%80%93Winkler_distance]) and the
+event that represents the cluster is the one that was reported the most times in
+the original data. This is a best effort approach to merging the events and is
+not perfect, for example 'TSUNAMI' and 'BEACH FLOOD', are not likely to be
+clustered together even though they are simular events. Only events that had distances in
+the lower 10% were clustered together, so that only the most similar event names
+were clustered together. However, the method of clustering (or not clustering at
+all) did not have a large impact on the final statistics of the top results.
+
+```{r, clusterEvents, cache=TRUE}
+
+chooseEventRepresentitive <- function(events, eventCounts)
+{
+	filter(eventCounts, EVTYPE %in% events) %>% 
+			arrange(desc(count)) %>% 
+			select(EVTYPE) %>% 
+			slice(1) %>% 
+			as.character()
+}
+eventCounts <- group_by(unprocessed, EVTYPE) %>% dplyr::summarize(count=length(EVTYPE))
+eventTypes <- select(unprocessed, EVTYPE) %>% unique() %>% arrange(EVTYPE) %>% tail(-1)
+event.dist <- stringdistmatrix(gsub("[^A-Z]", "", toupper(eventTypes$EVTYPE)), method="jw")
+tenth <- quantile(event.dist, 0.1)
+eventTypes$cluster <- cutree(hclust(event.dist), h=tenth)
+
+clusteredEvents <- group_by(eventTypes, cluster) %>% 
+		dplyr::summarize(eventGroup=chooseEventRepresentitive(EVTYPE, eventCounts)) %>%
+    	merge(eventTypes) %>%
+    	select(-cluster) %>%
+    	merge(unprocessed, by="EVTYPE") %>%
+    	select(eventGroup, EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+
+```
+
+## Totaling the Casualties
+After the events have been clustered, totaling the fatalities
+and injuries related to weather events is straight forward. The code below simply sums
+the fatalities and injuries separately for each event.
+```{r, sumCasualties, cache=TRUE}
+casualties <- group_by(clusteredEvents, eventGroup) %>%
+		dplyr::summarize(Fatalities=sum(FATALITIES), Injuries=sum(INJURIES)) %>%
+		gather(type, amount, Fatalities, Injuries)
+```
+
+The column for representing the scale of damage done to property ('PROPDMGEXP')
+and crops ('CROPDMGEXP') is not very consistant or straightforward. Some of the data
+have been removed since it is not clear what the meaning of the 'PROPDMG' or
+'CROPDMG' is. However, they have been dropped independently, that is if the
+'CROPDMG' column is understandable but the 'PROPDMG' is not then that data point
+is used in the final analysis for crop damage but not for property damage. To
+sum the damages we first filter out data that we are unclear about and then
+format the damage columns so that we can sum the total property and crop
+(separately) for each event.
+
+## Totaling the Damages
+```{r, sumDamage, cache=T}
+dropDmgExp <- c("?", "+", "-")
+
+mutateDmgExp <- function(dmgExp)
+{
+	dmgExp <- ifelse(tolower(dmgExp) == "h", "2", dmgExp)
+	dmgExp <- ifelse(tolower(dmgExp) == "k", "3", dmgExp)
+	dmgExp <- ifelse(tolower(dmgExp) == "m", "6", dmgExp)
+	dmgExp <- ifelse(tolower(dmgExp) == "b", "9", dmgExp)
+	as.numeric(dmgExp)
+}
+
+colsep <- paste(sample(letters, 10), collapse="") #unlikely to collide with anything meaningful
+
+damages <- select(clusteredEvents, eventGroup, PROPDMG:CROPDMGEXP) %>%
+		dplyr::mutate(Property=paste(PROPDMG, PROPDMGEXP, sep=colsep), Crop=paste(CROPDMG, CROPDMGEXP, sep=colsep)) %>%
+		select(eventGroup, Property, Crop) %>%
+		gather(dmg.type, value, Property, Crop) %>%
+		separate(value, into=c("dmg", "dmg.scale"), sep=colsep) %>%
+		dplyr::mutate(dmg.scale=mutateDmgExp(dmg.scale), abs.dmg=as.numeric(dmg)*(10^dmg.scale)) %>%
+		group_by(eventGroup, dmg.type) %>%
+		dplyr::summarize(total.damage=round(sum(abs.dmg, na.rm=TRUE)/(10^9), 2))
+```
+
+# Results
+
+## Weather Events Effect on Population Health
+
+```{r, cache=TRUE}
+top <- 15
+topFatal <-  filter(casualties, type == "Fatalities") %>% 
+    arrange(desc(amount)) %>% 
+    head(top)
+topInjury <- filter(casualties, type == "Injuries") %>% 
+    arrange(desc(amount)) %>% 
+    head(top)
+fatalityRange <- filter(casualties,! eventGroup %in% topFatal$eventGroup) %>% select(amount) %>% range()
+injuryRange <- filter(casualties,! eventGroup %in% topInjury$eventGroup) %>% select(amount) %>% range()
+incommon <- intersect(topFatal$eventGroup, topInjury$eventGroup) %>% length()
+# These next four lines allow for the plot to be ordered by highest amount independently
+# across the facets
+topBoth <- rbind(topInjury, topFatal) %>% arrange(amount, type) %>% as.data.frame()
+topBoth$t <- as.numeric(factor(topBoth$type))
+topBoth <- plyr::ddply(topBoth, .(type, eventGroup), transform, x=paste(c(rep(' ', t-1), eventGroup), collapse=''))
+topBoth$x = factor(topBoth$x, levels=topBoth[order(topBoth$amount), 'x'])
+ggplot(data=topBoth, aes(x=x, y=amount)) +
+    facet_wrap(~type, scales="free", ncol=1) + 
+    geom_bar(stat="identity") + 
+    coord_flip() +
+    xlab("Event Type") + 
+    ylab("Total Amount") + 
+    theme_bw()
+```
+The plot above shows the top `r top` events with respect fatalities and injuries (separately).
+We can see from this plot that torandos have caused far more 
+fatalities and injuries than the other events. For the other 
+`r prettyNum(nrow(casualties) - top, big.mark=",", scientific=FALSE)` 
+events the total fatalities range from `r fatalityRange[1]` to 
+`r prettyNum(fatalityRange[2], big.mark=",", scientific=FALSE)` and the total 
+injuries range from `r injuryRange[1]` to
+`r prettyNum(injuryRange[2], big.mark=",", scientific=FALSE)`. There are
+`r incommon` events in common amoung the top `r top` for fatalities and
+injuries.
+
+
+## Fiscal Effect of Weather Events
+```{r, cache=TRUE}
+top <- 15
+topProp <-  filter(damages, dmg.type == "Property") %>% 
+    arrange(desc(total.damage)) %>% 
+    head(top)
+topCrop <- filter(damages, dmg.type == "Crop") %>% 
+    arrange(desc(total.damage)) %>% 
+    head(top)
+propDmgRange <- filter(damages,! eventGroup %in% topProp$eventGroup) %>% 
+		as.data.frame() %>% 
+		select(total.damage) %>% 
+		range()
+cropDmgRange <- filter(damages,! eventGroup %in% topCrop$eventGroup) %>% 
+		as.data.frame() %>% 
+		select(total.damage) %>% 
+		range()
+incommon.dmg <- intersect(topProp$eventGroup, topCrop$eventGroup) %>% length()
+# These next four lines allow for the plot to be ordered by highest amount independently
+# across the facets
+topBoth <- rbind(topProp, topCrop) %>% arrange(total.damage, dmg.type) %>% as.data.frame()
+topBoth$t <- as.numeric(factor(topBoth$dmg.type))
+topBoth <- plyr::ddply(topBoth, .(dmg.type, eventGroup), transform, x=paste(c(rep(' ', t-1), eventGroup), collapse=''))
+topBoth$x = factor(topBoth$x, levels=topBoth[order(topBoth$total.damage), 'x'])
+ggplot(data=topBoth, aes(x=x, y=total.damage)) +
+    facet_wrap(~dmg.type, scales="free", ncol=1) + 
+    geom_bar(stat="identity") + 
+    coord_flip() +
+    xlab("Event Type") + 
+    ylab("Total Amount (in billions of dollars") + 
+    theme_bw()
+```
+
+From the plot above we can see that droughts have the greatest fiscal
+inpact on crops and are not even in the top `r top` event types for property
+damage, while flooding by far causes the most property damage and the second
+most crop damage. It is worth highlightling that property damages are in
+general much higher (about 10x) than crop damages. For the r
+`r prettyNum(nrow(damages) - top, big.mark=",", scientific=FALSE)` 
+events the total crop damages range from `r cropDmgRange[1]` to 
+`r prettyNum(cropDmgRange[2], big.mark=",", scientific=FALSE)` billion dollars
+and the total injuries range from `r propDmgRange[1]` to
+`r prettyNum(propDmgRange[2], big.mark=",", scientific=FALSE)` billion dollars.
+There are `r incommon.dmg` events in common amoung the top `r top` most damaging
+events.
+
