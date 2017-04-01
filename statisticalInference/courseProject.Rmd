@@ -1,0 +1,53 @@
+---
+title: "The Exponential Distribution and the Central Limit Theorem"
+author: "John Willey"
+date: "04/01/2017"
+output: pdf_document
+---
+
+```{r, eval=TRUE, echo=FALSE}
+library(knitr)
+library(ggplot2)
+opts_chunk$set(message=FALSE, warning=FALSE, echo=TRUE, eval=TRUE)
+```
+#Overview
+Below is analysis of statistics taken on samples of distributions following the exponential distribution. The analysis aims to show that the central limit does indeed apply to samples taken from the exponential distribution. The mass function of the exponential distribution is
+$$ f(x) = \lambda \exp(-\lambda x) $$
+Both the mean and standard deviation of the distribution are equal to $1/\lambda$.
+
+# Exploring the Means from Many Samples of the Exponential Distribution
+We will use 1000 simulations of the exponential distribution with $\lambda=0.2$ and $n=40$ to explore the distributionn of the means.
+```{r}
+set.seed(1134)
+expSampleMeans <- data.frame(mean=sapply(1:1000, function(x) mean(rexp(n=40, rate=0.2))))
+```
+
+From the central limit theorem this distribution of the means from exponential distributions should be approximately normal with mean equal to $1/\lambda$ and standard error equal to $1/(\lambda\sqrt(n))$. Using our values for $\lambda=0.2$ and $n=40$ we get that the mean should be 5 and the standard deviation should be 0.791, the standard error. Below are the calculations done in R verrifying that the values for the mean and standard deviation are what we expect them to be.
+
+```{r}
+expMean <- round(mean(expSampleMeans$mean), 3)
+print(expMean)
+expStdDev <- round(sd(expSampleMeans$mean), 3)
+print(expStdDev)
+```
+
+From the calculations we can indeed see that the calculated mean, `r expMean`, is close the theoretical value of 5 and that the calculated standard deviation, `r expStdDev`, is close to 0.791. Below is a histogram of the means and the denisty curve of a normal distribution using the theoretical values for the mean and standard deviation.
+
+```{r, fig.align='center', fig.height=3.5, fig.width=5}
+ggplot(data=expSampleMeans) + 
+    geom_histogram(aes(x=mean, y=..density..), fill="lightblue") + 
+    stat_function(fun=dnorm, args=list(mean=5, sd=5/sqrt(40)), lw=2, col="black") +
+    theme_bw()
+```
+
+We can see from the plot the means are normally distributed. The scatter plot below takes quantiles fromt the distribution of means and plots them against quantiles for a normal distribution with mean 5 and standard deviation 0.791. This plot also shows that the means follow a normal distribution.
+
+```{r, fig.align='center', fig.height=3.5, fig.width=5}
+quantiles <- data.frame(
+    samples=quantile(expSampleMeans$mean, seq(0.01,0.99, by=0.01)), 
+    normal.dist=qnorm(seq(0.01,0.99, by=0.01), mean=5, sd=0.791))
+qplot(data=quantiles, x=normal.dist, y=samples) + 
+    xlab("Quantiles from Normal Distribution") +
+    ylab("Quantiles from Means of Exponential Distributions") +
+    geom_abline(slope=1) + theme_bw()
+```
