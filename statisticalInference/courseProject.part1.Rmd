@@ -40,7 +40,7 @@ ggplot(data=expSampleMeans) +
     theme_bw()
 ```
 
-We can see from the plot the means are normally distributed. The scatter plot below takes quantiles fromt the distribution of means and plots them against quantiles for a normal distribution with mean 5 and standard deviation 0.791. This plot also shows that the means follow a normal distribution.
+We can see from the plot the means are normally distributed. The scatter plot below takes quantiles from the distribution of means and plots them against quantiles for a normal distribution with mean 5 and standard deviation 0.791. This plot also shows that the means follow a normal distribution.
 
 ```{r, fig.align='center', fig.height=3.5, fig.width=5}
 quantiles <- data.frame(

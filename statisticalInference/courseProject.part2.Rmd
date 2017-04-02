@@ -1,0 +1,158 @@
+---
+title: "Tooth Growth by Dose and Suppliment"
+author: "John Willey"
+output: pdf_document
+---
+
+```{r, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(datasets)
+opts_chunk$set(message=FALSE, warning=FALSE, echo=TRUE, eval=TRUE)
+
+```
+
+# Overview
+The analysis below aims to use the central limit theorem to test that mean of lenghts for given suppliments and doses are different.
+
+# Summary of Data
+A quick summary of the tooth growth data is below, showing the mean and standard deviation for the lenghts for each suppliment and dose, as well as the number of observations. The histogram below shows the distributions of the lengths with doses horizontally and suppliments vertically.
+```{r, echo=FALSE}
+kable(group_by(ToothGrowth, supp, dose) %>% 
+          summarize(mean.length=mean(len), sd.length=round(sd(len), 2), min.length=min(len), max.length=max(len), observations=length(len)))
+```
+```{r, echo=FALSE, fig.align='center', fig.height=3, fig.width=6}
+qplot(data=ToothGrowth, x=len) + facet_grid(supp~dose) + theme_bw()
+```
+# Comparison of Lengths Accross Doses and Suppliments
+From the histograms above we can see that the lenghts under either suppliment increase when the dose increases, while the distributions do not look qualitatively different between suppliments (for a given dose). 
+
+```{r}
+brief_t.test <- function(x, y)
+{
+    results <- t.test(x, y, alternative="greater")
+    print(paste("p-value =", results$p.value))
+    print(paste("95% confidence interval: ", results$conf.int[1], "to", results$conf.int[2]))
+}
+```
+
+## Comparison Between Doses
+In the analyses below variables representing different statistics and quanties will be denoted with a subscript of the dose to which they pertain.
+```{r, echo=F}
+lengths_0.5 <- filter(ToothGrowth, dose == 0.5)$len
+lengths_1.0 <- filter(ToothGrowth, dose == 1.0)$len
+lengths_2.0 <- filter(ToothGrowth, dose == 2.0)$len
+```
+### Dose of 0.5 vs 1.0
+Statement of hypothesis:  
+$H_0$: $\mu_{0.5} = \mu_{1.0}$  
+$H_{1.0>0.5}$: $\mu_{1.0} > \mu_{0.5}$  
+The mean value of the lengths at dose 1.0 is larger than the mean of the lengths at a dose of 0.5.  
+```{r, message=T}
+brief_t.test(lengths_1.0, lengths_0.5)
+```
+### Dose of 0.5 vs 2.0
+Statement of hypothesis:  
+$H_0$: $\mu_{0.5} = \mu_{2.0}$  
+$H_{2.0>0.5}$: $\mu_{2.0} > \mu_{0.5}$  
+The mean value of the lengths at dose 2.0 is larger than the mean of the lengths at a dose of 0.5.
+
+```{r, message=T}
+brief_t.test(lengths_2.0, lengths_0.5)
+```
+### Dose of 1.0 vs 2.0
+Statement of hypothesis:  
+$H_0$: $\mu_{1.0} = \mu_{2.0}$  
+$H_{2.0>1.0}$: $\mu_{2.0} > \mu_{1.0}$  
+The mean value of the lengths at dose 2.0 is larger than the mean of the lengths at a dose of 1.0.
+
+```{r}
+brief_t.test(lengths_2.0, lengths_1.0)
+```
+## Comparison Between Suppliments
+```{r, echo=FALSE}
+lengths_OJ <- filter(ToothGrowth, supp == "OJ")$len
+lengths_VC <- filter(ToothGrowth, supp == "VC")$len
+```
+
+Since we cannot tell which one will be greater, we perform the t-test with the alternative set to "two.sided" and therefore our hypothesis statement is:  
+$H_0$: $\mu_{OJ} = \mu_{VC}$  
+$H_{OJ > VC}$ : $\mu_{OJ} > \mu_{VC}$
+
+```{r, message=T}
+brief_t.test(lengths_OJ, lengths_VC)
+```
+
+## Comparison of Doses and Suppliments
+The code to produce this plot  can be found int the appendix. Each tile in the plot is an experiment comparing two slices of the data. The hypothesis for each tile is of the form:  
+$H_0$: $\mu_{x} = \mu_{y}$  
+$H_{x>y}$: $\mu_{x} > \mu_{y}$  
+Where $x$ and $y$ represent the x-axis and y-axis respectively.
+
+```{r, echo=FALSE, message=FALSE}
+groupedLengths <- group_by(ToothGrowth, dose, supp) %>%
+    do(lengths=.$len) %>%
+    mutate(merge.col="merge.here")
+
+df_t.test <- function(df)
+{
+    l1 <- df$lengths.x
+    l2 <- df$lengths.y
+    results <- t.test(l1[[1]], l2[[1]], alternative="greater")
+    data.frame(p.value=results$p.value, lower=results$conf.int[1], upper=results$conf.int[2],
+	result=paste(signif(results$p.value, 2), paste0("[", round(results$conf.int[1], 2), ", ", round(results$conf.int[2], 2), "]" ), sep="\n"))
+}
+
+t.tests <- merge(groupedLengths, groupedLengths, by="merge.col") %>%
+    group_by(dose.x, supp.x, dose.y, supp.y) %>%
+    do(df_t.test(.)) %>%
+    mutate(label.x=paste(dose.x, supp.x), label.y=paste(dose.y, supp.y), conclusion=ifelse(lower > 0 & p.value < 0.05, "Reject Null Hypothesis","Accept Null Hypothosis"))
+
+ggplot(data=t.tests, aes(x=label.x, y=label.y)) + 
+    geom_tile(aes(fill=conclusion), colour="black") + 
+    geom_text(aes(label=result)) + 
+    xlab("") + ylab("") + theme(legend.position="bottom", legend.title=element_blank())
+
+
+```
+
+# Conclusions
+The central limit theorem allows us to ignore the underlying distribution of lengths when we consider the mean of lengths for the given slices of data. From the t-tests above we can resonably say that with 95% confidence that the mean lenght associated with larger doses are larger than those with smaller doses and that the mean length associated with suppliement "OJ" are larger than those associated with suppliment "VC". However, from the p-values and the confidence intervals that a bigger difference in the means is associated with dose and not suppliement type. In fact the lower end of the confidence interval for "OJ" mean length larger than "VC" is fairly close to zero suggesting that there may not be a large difference between the two actual means. The plot showing all the comparisons echos what we learned from the previous tests, that higher doses have higher mean lengths than lower doses. However, we can see that for dose = 2.0, we cannot say that the means of the lengths for "OJ" and "VC" are different.
+
+#Apendix
+Code to produce the plot comparing all slices of data.
+
+```{r, echo=TRUE, eval=FALSE}
+groupedLengths <- group_by(ToothGrowth, dose, supp) %>%
+    do(lengths=.$len) %>%
+    mutate(merge.col="merge.here")
+
+df_t.test <- function(df)
+{
+    l1 <- df$lengths.x
+    l2 <- df$lengths.y
+    results <- t.test(l1[[1]], l2[[1]], alternative="greater")
+    data.frame(
+        p.value=results$p.value, 
+        lower=results$conf.int[1], 
+        upper=results$conf.int[2],
+	    result=paste(signif(results$p.value, 2), 
+	             paste0("[", round(results$conf.int[1], 2), ", ", 
+	                    round(results$conf.int[2], 2), "]" ), sep="\n"))
+}
+
+t.tests <- merge(groupedLengths, groupedLengths, by="merge.col") %>%
+    group_by(dose.x, supp.x, dose.y, supp.y) %>%
+    do(df_t.test(.)) %>%
+    mutate(label.x=paste(dose.x, supp.x), 
+           label.y=paste(dose.y, supp.y), 
+           conclusion=ifelse(lower > 0 & p.value < 0.05, 
+                             "Reject Null Hypothesis",
+                             "Accept Null Hypothosis"))
+
+ggplot(data=t.tests, aes(x=label.x, y=label.y)) + 
+    geom_tile(aes(fill=conclusion), colour="black") + 
+    geom_text(aes(label=result)) + 
+    xlab("") + ylab("") + theme(legend.position="bottom", legend.title=element_blank())
+```
