@@ -1,0 +1,215 @@
+---
+title: "Predicting Correct Form of Barbell Lifts"
+author: "John Willey"
+synopisis: "Presented here are three different modeling techinques applied to data obtained from http://groupware.les.inf.puc-rio.br/har . All models used cross fold validation to determine out of sample accuracy."
+output:
+  html_notebook:
+    code_folding: hide
+---
+
+```{r}
+answers <- data.frame(obs=1:20, classe=c("B", "A", "B", NA, NA, "E", "D", NA, "A", "A", NA, NA, "B", "A", "E", NA, "A", "B", "B", "B"))
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(caret)
+library(DT)
+library(impute)
+library(MASS)
+
+knitr::opts_chunk$set(list(echo=TRUE, eval=TRUE, cache=TRUE, warning=FALSE, message=FALSE, error=FALSE))
+
+theme_set(theme_bw())
+```
+
+#Data
+The data are provided classifies whether a subject performed curls correctly. The data are divided into 5 different classes, A-E. Class A represents when subject performed the curl correctly, classes B-E represent when the subject made a commomn mistake (lifting the dumbbell
+only halfway, lowering the dumbbell only halfway and throwing the hips to the front, corresponinding to classes B-E resepectively) in when performing the curl. The data contains  accelerations recorded by devices worn by the subjects.
+##Load the Data
+```{r, message=FALSE, error=FALSE, cache=TRUE, warning=FALSE}
+raw_training <- read_csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", progress=FALSE)
+
+raw_validation <- read_csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", progress=FALSE)
+```
+
+##Clean the Data
+The code shows the criteria that was used to drop observations or columns of data. There were many columns in the training set that contained mostly NA values, those have been dropped. There were also two rows that were incomplete in the training set and dropped as well.
+```{r}
+
+get_valid_columns <- function(df)
+{
+    irrelevantCols <- c("X1", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window", "num_window")
+    usableColumns <- setdiff(colnames(df)[apply(df, 2, is_usable_column)], irrelevantCols)
+    df[, usableColumns] # keep only the usable columns
+}
+
+is_usable_column <- function(col)
+{
+    length(col[col == "#DIV/0!" || is.na(col)])/length(col) < 0.10
+}
+
+complete_rows <- function(df) df[complete.cases(df), ]
+
+training_data <- get_valid_columns(raw_training) %>% complete_rows()
+keepCols <- intersect(colnames(raw_validation), colnames(training_data))
+validation_data <- raw_validation[, keepCols] %>% complete_rows()
+training_data$classe <- factor(training_data$classe)
+```
+
+## Data Summary
+The table below summarizes the values of features on the training data.
+```{r}
+sum.df <- summary(training_data) %>% 
+    as.data.frame() %>%
+    separate(Freq, c("metric", "value"), sep=":") %>% 
+    dplyr::select(-Var1) %>% 
+    dplyr::filter(Var2 != "classe") %>%
+    spread(metric, value)
+DT::datatable(sum.df)
+```
+A plot of the classes of the observations in the training data.
+```{r}
+ggplot(data=training_data, aes(x=classe)) + geom_bar()
+```
+
+
+
+
+# Modeling {.tabset}
+All the models will use 5 fold cross validation. The tabs below display the results from each type of modeling. These summaries can be skipped unless more detail about the model performance is desired.
+```{r}
+
+model_performance_summary <- function(data, lev=NULL, model=NULL)
+{
+    mc <- multiClassSummary(data, lev, model)
+    
+    tpr.df <- group_by(data, obs) %>% 
+        dplyr::summarize(TPR=length(pred[pred==obs[1]])/length(obs)) %>%
+        mutate(obs=paste(obs, "TPR")) %>%
+        spread(obs, TPR)
+    tpr <- as.numeric(tpr.df)
+    names(tpr) <- names(tpr.df)
+    numObs <- nrow(data)
+    names(numObs) <- "Observations"
+    c(mc, tpr, numObs)
+}
+set.seed(12345)
+train_control <- trainControl(method="cv", 
+                              number=5,
+                              seeds=NA,
+                              savePredictions = "final", 
+                              classProbs = TRUE,
+                              summaryFunction=model_performance_summary)
+```
+
+```{r, modelAnalysisFunctions}
+predict_validation <- function(modelObject, validation_data, model_name)
+{
+    predict(modelObject, validation_data, type="prob") %>% mutate(obs=rownames(.)) %>% gather(class, prob, -obs) %>% group_by(obs) %>% dplyr::summarize(max.prob=max(prob), class=class[which(prob==max.prob)]) %>% mutate(modelType=model_name, obs=as.numeric(obs)) %>% dplyr::arrange(obs)
+
+}
+
+getModelResults <- function(modelObject, validation_data, modelName)
+{
+    validationResults <- predict_validation(modelObject, validation_data, modelName)
+    cvResults <- modelObject$resample
+    cvPredictions <- modelObject$pred
+    cvAccuracy <- nrow(filter(cvPredictions, pred==obs))/nrow(cvPredictions)
+    tprPlot <- ggplot(data=gather(cvResults, metric, value, -Resample) %>% filter(grepl("TPR", metric)), aes(x=metric, y=value)) + geom_bar(stat="identity", aes(fill=metric)) + coord_polar(theta="x") + facet_wrap(~Resample) + theme(axis.text.x = element_blank(), legend.position=c(0.8, 0.2)) + labs(main="True Positive Rates by Fold and Class")
+    list(cvResults=cvResults, accuracy=cvAccuracy, validationResults=validationResults, tprPlot=tprPlot)
+}
+```
+
+
+## Linear Discrimenant Analysis {.tabset}
+```{r}
+lda_fit <- train(classe ~ ., data=training_data, trControl=train_control, method="lda", metric="Accuracy")
+lda_results <- getModelResults(lda_fit, validation_data, "lda")
+```
+The average accuracy accross the folds was `r round(lda_results$accuracy, 3)`. Below is a table of statistics taken during cross validation,  plots of the true positive rates for each class across the folds and the predictions on the validation set
+
+### CV Statistics
+```{r}
+gather(lda_results$cvResults, metric, value, -Resample) %>%
+    spread(Resample, value) %>%
+    DT::datatable()
+```
+
+### True Positive Rates
+```{r}
+lda_results$tprPlot
+```
+
+### Validation Predictions
+```{r}
+predictions <- lda_results$validationResults
+colnames(predictions) <- c("Observation", "Probability", "Predicted Class", "Model Name")
+knitr::kable(predictions)
+```
+
+## Stochastic Gradient Boosting {.tabset}
+```{r}
+gbmGrid <- expand.grid(shrinkage=0.01, n.trees=150, interaction.depth=5, n.minobsinnode=10)
+gbm_fit <- train(classe ~ ., data=training_data, trControl=train_control, method="gbm", metric="Accuracy", tuneGrid=gbmGrid)
+gbm_results <- getModelResults(gbm_fit, validation_data, "gbm")
+```
+The average accuracy accross the folds was `r round(gbm_results$accuracy, 3)`. Below is a table of statistics taken during cross validation,  plots of the true positive rates for each class across the folds and the predictions on the validation set
+
+### CV Statistics
+```{r}
+gather(gbm_results$cvResults, metric, value, -Resample) %>%
+    spread(Resample, value) %>%
+    DT::datatable()
+```
+
+### True Positive Rates
+```{r}
+gbm_results$tprPlot
+```
+
+### Validation Predictions
+```{r}
+predictions <- gbm_results$validationResults
+colnames(predictions) <- c("Observation", "Probability", "Predicted Class", "Model Name")
+knitr::kable(predictions)
+```
+
+
+## Random Forest {.tabset}
+```{r}
+rfGrid <- expand.grid(mtry=53)
+rf_fit <- train(classe ~ ., data=training_data, trControl=train_control, method="rf", metric="Accuracy", tuneGrid=rfGrid)
+rf_results <- getModelResults(rf_fit, validation_data, "rf")
+```
+The average accuracy accross the folds was `r round(rf_results$accuracy, 3)`. Below is a table of statistics taken during cross validation,  plots of the true positive rates for each class across the folds and the predictions on the validation set
+
+### CV Statistics
+```{r}
+gather(rf_results$cvResults, metric, value, -Resample) %>%
+    spread(Resample, value) %>%
+    DT::datatable()
+```
+
+### True Positive Rates
+```{r}
+rf_results$tprPlot
+```
+
+### Validation Predictions
+```{r}
+predictions <- rf_results$validationResults
+colnames(predictions) <- c("Observation", "Probability", "Predicted Class", "Model Name")
+knitr::kable(predictions)
+```
+
+# Results
+
+The random forrest model cleary had a much higher accuracy than either the stochastic gradient boosting or the linear discrimenant analysis. 
+
+```{r}
+knitr::kable(data.frame(model=c("Linear Discriminant Analysis", "Stochastic Gradient Boosting", "Random Forest"), accuracy=c(lda_results$accuracy, gbm_results$accuracy, rf_results$accuracy)), caption="Out of Sample Average Accuracies")
+```
+

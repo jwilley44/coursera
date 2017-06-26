@@ -1,0 +1,8 @@
+name: Publish Document
+title:
+account: rpubs
+server: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/287361/b77c451688404c75b93120617b649441
+bundleId: https://api.rpubs.com/api/v1/document/287361/b77c451688404c75b93120617b649441
+url: http://rpubs.com/jwilley44/287361
+when: 1498437007.95693

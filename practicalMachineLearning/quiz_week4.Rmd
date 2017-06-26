@@ -1,0 +1,142 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(ElemStatLearn)
+library(caret)
+library(randomForest)
+
+data(vowel.train)
+
+data(vowel.test)
+vowel.train$y <- factor(vowel.train$y)
+vowel.test$y <- factor(vowel.test$y)
+set.seed(33833)
+vowel_rf <- train(y ~ ., data=vowel.train, method="rf")
+vowel_gbm <- train(y ~ ., data=vowel.train, method="gbm")
+```
+
+```{r}
+acc <- function(prediction, classification) length(prediction[prediction==classification])/length(prediction)
+library(forecast)
+rf_pred_test <- predict(vowel_rf, vowel.test)
+gbm_pred_test <- predict(vowel_gbm, vowel.test)
+confusionMatrix(rf_pred_test, reference=vowel.test$y)
+confusionMatrix(gbm_pred_test, reference=vowel.test$y)
+confusionMatrix( predict(vowel_rf, vowel.test), reference=predict(vowel_gbm, vowel.test))
+acc(predict(vowel_rf, vowel.test), vowel.test$y)
+acc(predict(vowel_gbm, vowel.test), vowel.test$y)
+acc(predict(vowel_rf, vowel.test), predict(vowel_gbm, vowel.test))
+```
+
+```{r}
+library(pgmm)
+library(caret)
+
+library(gbm)
+
+set.seed(3433)
+
+library(AppliedPredictiveModeling)
+
+data(AlzheimerDisease)
+
+adData = data.frame(diagnosis,predictors)
+
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+
+training = adData[ inTrain,]
+
+testing = adData[-inTrain,]
+set.seed(62433)
+```
+
+```{r}
+rf_model <- train(diagnosis ~ ., data=training, method="rf")
+gbm_model <- train(diagnosis ~ ., data=training, method="gbm")
+lda_model <- train(diagnosis ~ ., data=training, method="lda")
+```
+```{r}
+training_blend <- data.frame(diagnosis=training$diagnosis, rf=predict(rf_model, training), gbm=predict(gbm_model, training), lda=predict(lda_model, training))
+blend_model <- train(diagnosis ~ ., data=training_blend, method="rf")
+```
+
+```{r}
+
+acc(predict(rf_model, testing), testing$diagnosis)
+acc(predict(gbm_model, testing), testing$diagnosis)
+acc(predict(lda_model, testing), testing$diagnosis)
+testing_blend <- data.frame(diagnosis=testing$diagnosis, rf=predict(rf_model, testing), gbm=predict(gbm_model, testing), lda=predict(lda_model, testing))
+acc(predict(blend_model, testing_blend), testing_blend$diagnosis)
+```
+
+```{r}
+set.seed(3523)
+
+library(AppliedPredictiveModeling)
+
+data(concrete)
+
+inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
+
+training = concrete[ inTrain,]
+
+testing = concrete[-inTrain,]
+set.seed(233)
+```
+
+```{r}
+library(e1071)
+library(caret)
+lasso_model <- train(CompressiveStrength ~ ., data=training, method="lasso")
+lasso_model
+library(elasticnet)
+library(dplyr)
+attributes(lasso_model)
+```
+```{r}
+library(lubridate) # For year() function below
+
+dat = read.csv("~/Downloads/gaData.csv")
+
+training = dat[year(dat$date) < 2012,]
+
+testing = dat[(year(dat$date)) > 2011,]
+
+tstrain = ts(training$visitsTumblr)
+library(forecast)
+```
+
+```{r}
+nrow(training)
+nrow(testing)
+bats_model <- bats(tstrain)
+forecast(ts(testing$visitsTumblr), model=bats_model)
+training
+accuracy(forecast(bats_model), testing$visitsTumblr)
+forecast::
+```
+
+
+```{r}
+set.seed(3523)
+
+library(AppliedPredictiveModeling)
+library(e1071)
+
+data(concrete)
+
+inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
+
+training = concrete[ inTrain,]
+
+testing <- concrete[-inTrain,]
+```
+
+```{r}
+svm_model <- svm(CompressiveStrength ~ ., data=training)
+RMSE(predict(svm_model, testing), testing$CompressiveStrength)
+```
+

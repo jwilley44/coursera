@@ -1,0 +1,100 @@
+---
+title: "Effect of Transmission Type on Fuel Efficiency"
+author: "John Willey"
+date: "April 30th 2017"
+output: pdf_document
+---
+
+```{r, echo=FALSE, error=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(GGally)
+
+theme_set(ggplot2::theme_bw())
+opts_chunk$set(message=FALSE, warning=FALSE, error=FALSE, echo=FALSE, eval=TRUE, cach=TRUE)
+
+mtcars <- mutate(mtcars, am=factor(am), gear=factor(gear), cyl=factor(cyl), carb=factor(carb), vs=factor(vs))
+
+```
+
+# Synopsis
+Below is an anlysis on the affect of of transmission type on the miles per gallon. The analysis below will show that while the average miles per gallon is higher for cars with manual transmission, ultimately the transmission type does not affect the miles per gallon.
+
+# Data Summary
+The data used is the "mtcars" dataset from R.
+
+The transmission type is given by the column "am" with 0 and 1 denoting automatic and manual transmission respectively. Grouping the data by transmission and looking at the summary of the miles per gallon gives us a starting point for our analysis.
+
+```{r, echo=FALSE}
+kable(mutate(mtcars, transmission=ifelse(am == 0, "automatic", "manual")) %>% 
+                 group_by(transmission) %>% 
+                 summarize(mpg.mean=mean(mpg), mpg.sd=sd(mpg)))
+```
+
+We can already see that for cars with automatic transmission on average have a lower mpg than than cars with a manual transmission. Using a t-test we can see if this preliminary result is significant.
+
+```{r, echo=FALSE}
+t.test(
+    filter(mtcars, am == 0)$mpg,
+    filter(mtcars, am == 1)$mpg
+)
+```
+Indeed the difference in the means appears to be significant. It would seem that from this preliminary analysis that cars with manual transmission tend to have better miles per gallon. However, it is naive to think that transmission type is only factor affecting miles per gallon. Below are plots of the other factors on miles per gallon colored by transmission.
+
+```{r, echo=FALSE}
+ggplot(gather(mtcars, feature, value, -mpg, -am), aes(x=value, y=mpg, colour=factor(am))) +
+    geom_point() +
+    scale_colour_manual(values=c("blue", "red")) + 
+    facet_wrap(~feature, scales="free") +
+    theme(legend.position = "bottom", axis.text.x = element_blank()) +
+    geom_smooth(method = "lm")
+```
+
+# Linear Models
+From the plots above we can see that the weight (wt) clearly has a negative effect on the miles per gallon as does the horsepower (hp) and the number of cylinders. Below are two linear models, one only using the transmission type and the other includes both weight and transmission type. 
+
+```{r}
+fit.am <- lm(mpg ~ am, data=mtcars)
+summary(fit.am)
+fit.am_wt <- lm(mpg ~ wt + am, data=mtcars)
+summary(fit.am_wt)
+```
+
+From the first linear fit we see that manual transmission positively affects miles per gallon, however when we account for weight we can see that transmission type has little affect on the miles per gallon. In fact the affect that manual transmission has flipped sign in the second model. Below are residual plots for the transmission and the transmision Plus weight model respectively.
+
+```{r, fig.height=3, fig.width=3}
+par(mfrow=c(1, 2))
+qplot(y=fit.am$residuals, x=predict(fit.am)) + ylab("Residuals") + xlab("Prediction")
+qplot(y=fit.am_wt$residuals, x=predict(fit.am_wt)) + ylab("Residuals") + xlab("Prediction")
+
+```
+
+The plot of the transmission model only is not particularly usefel however the transmission plus weight plot does show that there is not trend in the residuals vs prediction.  
+Below is a plot of miles per gallon vs weight, colored by transmission with the linear fits for each transmission type.
+
+```{r, fig.height=3, fig.width=4, fig.align='center'}
+coef.automatic <- lm(mpg ~ wt, data=filter(mtcars, am == 0))$coef
+coef.manual <- lm(mpg ~ wt, data=filter(mtcars, am == 1))$coef
+mtcars.plot <- mutate(mtcars, 
+                      slope=ifelse(am == 0, coef.automatic[2], coef.manual[2]), 
+                      intercept=ifelse(am == 0, coef.automatic[1], coef.manual[1]))
+ggplot(data=mtcars.plot, aes(x=wt, y=mpg, colour=factor(am))) + 
+    geom_point() +
+    annotate("text", x=2.5, y=10, label=paste("slope =", round(coef.manual[2], 2)), colour="red") +
+    annotate("text", x=4, y=32, label=paste("slope =", round(coef.automatic[2], 2)), colour="blue") +
+    scale_colour_manual(values=c("blue", "red")) + 
+    geom_abline(aes(slope=slope, intercept=intercept, colour=factor(am)))
+```
+
+# Conclusion
+
+The average miles per gallon is lower for cars with manual transmission than it is with cars with automatic transmission. However, this affect is due to the fact those cars with autmatic transmission tended to have a higher weight. This can be seen in the plot and linear fits above. And in fact from the summary of the linear fit that includes both weight and transmission we cannot say with much confidence that miles per gallon is affected by transmission type. Also interesting to note is that if take the area where the weights overlap for the two transmission types (the min weight for automatic and the max weight for manual) we see that means are nearly identical.
+
+```{r}
+low <- filter(mtcars, am == 0)$wt %>% sort() %>% min()
+high <- filter(mtcars, am == 1)$wt %>% sort() %>% max()
+overlap <- filter(mtcars, wt >= low, wt <= high)
+t.test(filter(overlap, am == 1)$mpg, filter(overlap, am == 0)$mpg)
+```
