@@ -1,0 +1,30 @@
+---
+title: "Interactive Map"
+author: "John Willey"
+date: "7/4/2017"
+output: 
+    html_document:
+    code_folding: hide
+---
+
+```{r, warning=FALSE}
+library(leaflet)
+
+favoriteFoodSpots <- matrix(c("Victor's Pizza", 37.7894166, -122.4204806,
+                              "iThai", 37.787783,-122.4159883,
+                              "Ryoko", 37.7882152,-122.4141863,
+                              "Yamo", 37.761993,-122.4218911,
+                              "Papa Lote", 37.7519672,-122.4231889,
+                              "Chez Mamman", 37.7624526,-122.3988972,
+                              "Shalimar", 37.7879976,-122.4190576,
+                              "Lavash", 37.7640678,-122.4656119,
+                              "Tosca", 37.7976308,-122.4080623,
+                              "Jane", 37.7976677,-122.4233832), ncol=3, byrow = T) %>%
+    as.data.frame(stringsAsFactors=FALSE) %>%
+    dplyr::rename(name=V1, latitude=V2, longitude=V3) %>%
+    dplyr::mutate(latitude=as.numeric(latitude), longitude=as.numeric(longitude))
+favoriteFoodSpots %>% leaflet() %>% 
+    addTiles() %>% 
+    addMarkers(clusterOptions=markerClusterOptions(), popup=favoriteFoodSpots$name)
+```
+

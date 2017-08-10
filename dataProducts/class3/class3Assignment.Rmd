@@ -1,0 +1,16 @@
+---
+title: "GGPlot with Plotly"
+author: "John Willey"
+date: "`r Sys.time()`"
+output: ioslides_presentation
+---
+
+## Plot
+Below is a plot from the mtcars dataset of MPG vs Weight colored by the number of cylinders.
+```{r, warning=F, message=F, error=F, echo=F}
+library(plotly)
+library(ggplot2)
+p <- ggplot(data=mtcars, aes(x=wt, y=mpg, colour=as.factor(cyl))) + 
+    geom_point() + labs(x="Weight", y="MPG", colour="Cylinders")
+ggplotly(p)
+```

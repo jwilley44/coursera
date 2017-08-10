@@ -1,0 +1,18 @@
+class3Assignment
+========================================================
+author: John Willey
+date: `r Sys.time()`
+autosize: true
+
+Ggplot with Plotly
+========================================================
+
+
+```{r}
+library(plotly)
+library(ggplot2)
+p <- ggplot(data=mtcars, aes(x=wt, y=mpg, colour=as.factor(cyl))) + geom_point() + labs(x="Weight", y="MPG", colour="Cylinders")
+ggplotly(p)
+```
+
+<iframe src="class3Assignment.html" style="position:absolute;height:100%;width:100%"></iframe>
