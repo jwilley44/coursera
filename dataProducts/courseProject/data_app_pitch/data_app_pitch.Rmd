@@ -1,0 +1,51 @@
+---
+author : "John Willey"
+date : "August 11th 2017"
+title : "Simple Random Forest Modeling Application"
+output : ioslides_presentation
+---
+
+## Application Overview
+
+The application has one goal...to build a random forest model of a dataset.
+
+Features:
+
+* Users can select from two available data sets!
+* You decide what outcome to model.
+* Pick your features.
+* Want to hold some data to test your model? No problem.
+* Download your results.
+
+## Building Your Model with the Application
+Selecting the options below, as in the screen shot, is the same as running the code on the next slide.
+
+```{r, echo=FALSE}
+library(png)
+library(grid)
+screenshot <- readPNG("/Users/jwilley44/Desktop/data_app_screenshot.png")
+grid.raster(screenshot)
+```
+
+## R Code Equivalent
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, }
+library(caret)
+library(randomForest)
+library(dplyr)
+set.seed(1234)
+iris.train <- iris
+tr <- createDataPartition(iris.train$Species, p=0.8)
+iris.train$set <- 1:nrow(iris) %in% tr$Resample1
+iris.train <- mutate(iris.train, set=ifelse(set, "training", "test"))
+rf_model <- randomForest(
+    Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, 
+    data=subset(iris.train, set=="training"))
+```
+
+## Results
+We can see that the running the R code gives the same result as the application.
+```{r}
+rf_model
+```
+
