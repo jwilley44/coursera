@@ -2,6 +2,7 @@ library(shiny)
 library(ggplot2)
 library(tidyverse)
 library(caret)
+library(randomForest)
 
 data(iris)
 data(mtcars)
@@ -33,7 +34,7 @@ buildFormula <- function(outcome, predictors) parse(text=paste(outcome, "~", pas
 buildRandomForest <- function(outcome, predictors, training_set, filterTraining)
 {
     training_set <- filter(training_set, set == "training") %>% select(-set)
-    train(eval(buildFormula(outcome, predictors)), data=training_set, method="rf")
+    randomForest(formula=eval(buildFormula(outcome, predictors)), data=training_set)
 }
 
 getHelpDoc <- function()
